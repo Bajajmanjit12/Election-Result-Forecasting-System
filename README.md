@@ -62,6 +62,4 @@ streamlit run election_forecast_app.py
 💡 Sample Use Case
 Predict the winning chances for a candidate from Mumbai South based on past results and a new survey of 100 people.
 
-![image](https://github.com/user-attachments/assets/1819825e-5c94-4d8f-b2b0-898853c1b42f)
-![image](https://github.com/user-attachments/assets/63c2fc4c-f42d-4030-bba5-c7bb7ec62d25)
 
