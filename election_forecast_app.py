@@ -5,97 +5,124 @@ import matplotlib.pyplot as plt
 from scipy.stats import beta
 import plotly.express as px
 
-# Set up Streamlit UI
-st.set_page_config(page_title="Election Forecasting App", layout="wide")
+st.set_page_config(page_title="Election Forecast App", layout="wide")
+st.markdown("""
+    <style>
+        .main {font-size:18px;}
+        h1, h2, h3, h4, h5, h6 {color: #003366;}
+        .stTabs [data-baseweb="tab"] {font-size: 18px; padding: 1rem;}
+        .stTabs [data-baseweb="tab"]:hover {background-color: #f0f2f6;}
+        .css-1v0mbdj.ef3psqc12 {padding-top: 2rem;}
+    </style>
+""", unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align: center; font-size: 36px;'>🗳️ Election Result Forecasting using Bayesian Statistics</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 18px;'>Use real election data and Bayesian inference to forecast winning probabilities of candidates!</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🗳 Election Forecast Dashboard</h1>", unsafe_allow_html=True)
 
-# Upload CSV
-uploaded_file = st.sidebar.file_uploader("📂 Upload Election CSV File (e.g., consit2019.csv)", type=['csv'])
+uploaded_file = st.file_uploader("Upload Election CSV (e.g., consit2019.csv)", type=["csv"])
 
 if uploaded_file:
-    # Read and clean CSV
     df = pd.read_csv(uploaded_file)
-    df.columns = df.columns.str.strip()  # Remove any extra spaces from column names
-    st.sidebar.success("✅ File uploaded!")
+    df.columns = df.columns.str.strip()
 
-    # Show all available constituencies
+    st.subheader("📂 Uploaded Dataset")
+    st.dataframe(df)
+
     constituencies = df['Constituency'].unique()
-    selected_const = st.sidebar.selectbox("🏙️ Select a Constituency", constituencies)
-
-    # Filter data for selected constituency
+    selected_const = st.selectbox("Select Constituency", constituencies)
     const_data = df[df['Constituency'] == selected_const].iloc[0]
 
-    # Display past election details
-    st.markdown(f"<h2 style='font-size: 28px;'>📜 Past Election Result: {selected_const}</h2>", unsafe_allow_html=True)
-    st.markdown(f"<p style='font-size: 18px;'><strong>Leading Candidate:</strong> {const_data['Leading Candidate']} ({const_data['Leading Party']})</p>", unsafe_allow_html=True)
-    st.markdown(f"<p style='font-size: 18px;'><strong>Trailing Candidate:</strong> {const_data['Trailing Candidate']} ({const_data['Trailing Party']})</p>", unsafe_allow_html=True)
-    
-    # Safe access to margin column
-    margin_column = 'Margin'
-    if margin_column in const_data:
-        st.markdown(f"<p style='font-size: 18px;'><strong>Vote Margin and Status:</strong> {const_data[margin_column]}</p>", unsafe_allow_html=True)
-    else:
-        st.warning(f"⚠️ '{margin_column}' column not found in the data.")
-
-    # Inputs: survey data
-    st.sidebar.header("📋 Enter Current Survey Data")
-    survey_lead = st.sidebar.number_input(f"Survey Votes for {const_data['Leading Candidate']}", 0, 1000, 58)
-    survey_trail = st.sidebar.number_input(f"Survey Votes for {const_data['Trailing Candidate']}", 0, 1000, 42)
-    n_simulations = st.sidebar.slider("🎲 Number of Simulations", 1000, 50000, 10000, step=1000)
-
-    # Bayesian prior using dummy historical vote assumption
     past_votes_lead = 6000
     past_votes_trail = 4000
-
     alpha_prior = past_votes_lead + 1
     beta_prior = past_votes_trail + 1
 
-    # Bayesian update with survey
-    alpha_post = alpha_prior + survey_lead
-    beta_post = beta_prior + survey_trail
+    tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Survey & Forecast", "Advanced Analysis", "Geographic View"])
 
-    samples = beta.rvs(alpha_post, beta_post, size=n_simulations)
-    prob_lead = np.mean(samples > 0.5)
-    prob_trail = 1 - prob_lead
+    with tab1:
+        st.subheader(f"📌 Overview - {selected_const}")
+        st.markdown(f"*Leading Candidate:* {const_data['Leading Candidate']} ({const_data['Leading Party']})")
+        st.markdown(f"*Trailing Candidate:* {const_data['Trailing Candidate']} ({const_data['Trailing Party']})")
+        st.markdown(f"*Vote Margin:* {const_data['Margin']}")
 
-    # Prediction output
-    st.markdown("<h2 style='font-size: 28px;'>📈 Predicted Win Probability</h2>", unsafe_allow_html=True)
-    pie_fig = px.pie(
-        names=[const_data['Leading Candidate'], const_data['Trailing Candidate']],
-        values=[prob_lead, prob_trail],
-        title="Winning Probability Forecast",
-        color_discrete_sequence=["#1f77b4", "#ff7f0e"]
-    )
-    st.plotly_chart(pie_fig, use_container_width=True)
+    with tab2:
+        st.subheader("🗳 Survey Input")
+        col1, col2, col3 = st.columns([1, 1, 2])
+        with col1:
+            survey_lead = st.number_input(f"{const_data['Leading Candidate']} Votes", 0, 1000, 58)
+        with col2:
+            survey_trail = st.number_input(f"{const_data['Trailing Candidate']} Votes", 0, 1000, 42)
+        with col3:
+            n_simulations = st.slider("Simulations", 1000, 50000, 10000, step=1000)
 
-    # Survey bar chart
-    st.markdown("<h2 style='font-size: 28px;'>📊 Survey Vote Comparison</h2>", unsafe_allow_html=True)
-    bar_fig = px.bar(
-        x=[const_data['Leading Candidate'], const_data['Trailing Candidate']],
-        y=[survey_lead, survey_trail],
-        labels={'x': 'Candidate', 'y': 'Survey Votes'},
-        color=[const_data['Leading Candidate'], const_data['Trailing Candidate']],
-        title="Entered Survey Votes"
-    )
-    st.plotly_chart(bar_fig, use_container_width=True)
+        alpha_post = alpha_prior + survey_lead
+        beta_post = beta_prior + survey_trail
+        samples = beta.rvs(alpha_post, beta_post, size=n_simulations)
 
-    # Posterior plot using matplotlib
-    st.markdown("<h2 style='font-size: 28px;'>🔵 Bayesian Posterior Distribution</h2>", unsafe_allow_html=True)
-    x_vals = np.linspace(0, 1, 1000)
-    y_vals = beta.pdf(x_vals, alpha_post, beta_post)
+        prob_lead = np.mean(samples > 0.5)
+        prob_trail = 1 - prob_lead
 
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(x_vals, y_vals, color='green', label='Posterior')
-    ax.axvline(0.5, color='red', linestyle='--', label='50% Threshold')
-    ax.set_title("Posterior Probability of Winning (Leading Candidate)")
-    ax.set_xlabel("Winning Probability")
-    ax.set_ylabel("Density")
-    ax.legend()
-    ax.grid(True)
-    st.pyplot(fig)
+        st.subheader("📈 Forecast Results")
+        pie_fig = px.pie(
+            names=[const_data['Leading Candidate'], const_data['Trailing Candidate']],
+            values=[prob_lead, prob_trail],
+            title="Winning Probability",
+            color_discrete_sequence=["#1f77b4", "#ff7f0e"]
+        )
+        st.plotly_chart(pie_fig, use_container_width=True)
 
-    st.success("✅ Forecast Completed Successfully!")
-else:
-    st.info("⬅️ Please upload a valid election CSV file to begin.")
+        st.subheader("📊 Survey Vote Comparison")
+        bar_fig = px.bar(
+            x=[const_data['Leading Candidate'], const_data['Trailing Candidate']],
+            y=[survey_lead, survey_trail],
+            labels={'x': 'Candidate', 'y': 'Votes'},
+            color=[const_data['Leading Candidate'], const_data['Trailing Candidate']],
+        )
+        st.plotly_chart(bar_fig, use_container_width=True)
+
+        st.subheader("🔵 Posterior Distribution")
+        x_vals = np.linspace(0, 1, 1000)
+        y_vals = beta.pdf(x_vals, alpha_post, beta_post)
+        fig, ax = plt.subplots(figsize=(4, 3))  # 👈 Reduced size here
+        ax.plot(x_vals, y_vals)
+        ax.axvline(0.5, color='red', linestyle='--')
+        ax.set_title("Posterior Probability (Leading Candidate)", fontsize=12)
+        ax.tick_params(axis='both', labelsize=10)
+        st.pyplot(fig)
+
+
+    with tab3:
+        st.subheader("📌 Sensitivity Analysis")
+        sens_lead = st.slider("Lead Votes", 0, 1000, value=survey_lead, key="sens_lead")
+        sens_trail = st.slider("Trail Votes", 0, 1000, value=survey_trail, key="sens_trail")
+        sens_sim = st.slider("Simulations", 1000, 50000, value=n_simulations, step=1000, key="sens_sim")
+
+        alpha_post_sens = alpha_prior + sens_lead
+        beta_post_sens = beta_prior + sens_trail
+        sens_samples = beta.rvs(alpha_post_sens, beta_post_sens, size=sens_sim)
+
+        # Removed outdated and static percentage display
+
+    with tab4:
+        st.subheader("🗺 Geographic Visualization")
+        geo_df = df.copy()
+
+        # Generate fake coordinates if needed
+        if 'Latitude' not in geo_df.columns or 'Longitude' not in geo_df.columns:
+            st.warning("🌍 Latitude/Longitude not found — generating random coordinates for map.")
+            np.random.seed(42)
+            geo_df['Latitude'] = np.random.uniform(20, 30, size=len(geo_df))
+            geo_df['Longitude'] = np.random.uniform(70, 90, size=len(geo_df))
+
+        fig_map = px.scatter_mapbox(
+            geo_df,
+            lat="Latitude",
+            lon="Longitude",
+            hover_name="Constituency",
+            hover_data=["Leading Candidate", "Leading Party", "Margin"],
+            color="Leading Party",
+            zoom=4,
+            height=600
+        )
+        fig_map.update_layout(mapbox_style="carto-positron")
+        fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+        st.plotly_chart(fig_map, use_container_width=True)
